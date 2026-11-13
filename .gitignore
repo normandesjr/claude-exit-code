@@ -31,3 +31,9 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Claude Code hook artifacts
+.claude/hooks/hook.log
+.claude/hooks/state/
+.claude/settings.local.json
+.DS_Store
