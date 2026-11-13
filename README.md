@@ -117,20 +117,34 @@ go test ./...
 # --- FAIL: TestSoma ... Soma(2, 3) = -1; esperado 5
 ```
 
-**3. Run with `exit 1`** and ask Claude for anything unrelated to the bug (e.g. "say hi"):
+**3. Run with `exit 1`** and ask Claude for something unrelated to the bug:
 
 ```bash
 export HOOK_FAIL_EXIT=1
 claude
 ```
 
+Example prompt:
+
+```
+Add comments to main.go
+```
+
 **4. Observe:**
 
 - You see the hook warning with the failing test output
-- Claude ends its turn **without touching `calc/calc.go`**
+- Claude adds the comments and ends its turn **without touching the bug in `calc/calc.go`**
 - `go test ./...` still fails afterwards
 
 **5. Compare with `exit 2`:** restart with `HOOK_FAIL_EXIT=2` and ask the same thing. This time the test output goes back to Claude, which fixes `Soma` (`a + b`) before it is allowed to stop. Run `git checkout calc/calc.go` to restore the bug between runs.
+
+**6. Make Claude unable to fix it:** with `HOOK_FAIL_EXIT=2`, forbid the fix:
+
+```
+You can't touch calc.go, and add comments to main.go
+```
+
+The hook keeps blocking (`exit 2`) because the tests still fail, but Claude is not allowed to fix them. With the basic hook this can loop; switch back to the robust hook (`HOOK_MAX_RETRIES=2`) to see it give up with `exit 1` after the retry limit.
 
 | `HOOK_FAIL_EXIT` | Test output goes to | Claude fixes the bug? |
 |------------------|---------------------|-----------------------|
