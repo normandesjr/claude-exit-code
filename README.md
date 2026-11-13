@@ -90,6 +90,62 @@ Follow the trace in another terminal:
 tail -f .claude/hooks/hook.log
 ```
 
+## Experiment: `exit 1` does NOT make Claude fix the code
+
+Only `exit 2` sends stderr back to Claude. With `exit 1` the failure is shown to you (the user) and Claude stops anyway, leaving the bug in place. You can verify it yourself with the basic hook, which takes its failure exit code from `HOOK_FAIL_EXIT`.
+
+**1. Point the Stop hook to the basic script** in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-tests.sh" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**2. Confirm the bug exists** (`Soma` returns `a - b`, so the test fails):
+
+```bash
+go test ./...
+# --- FAIL: TestSoma ... Soma(2, 3) = -1; esperado 5
+```
+
+**3. Run with `exit 1`** and ask Claude for anything unrelated to the bug (e.g. "say hi"):
+
+```bash
+export HOOK_FAIL_EXIT=1
+claude
+```
+
+**4. Observe:**
+
+- You see the hook warning with the failing test output
+- Claude ends its turn **without touching `calc/calc.go`**
+- `go test ./...` still fails afterwards
+
+**5. Compare with `exit 2`:** restart with `HOOK_FAIL_EXIT=2` and ask the same thing. This time the test output goes back to Claude, which fixes `Soma` (`a + b`) before it is allowed to stop. Run `git checkout calc/calc.go` to restore the bug between runs.
+
+| `HOOK_FAIL_EXIT` | Test output goes to | Claude fixes the bug? |
+|------------------|---------------------|-----------------------|
+| `1` | User only | No, stops anyway |
+| `2` | Claude (feedback) | Yes, blocked until tests pass |
+
+Watch the decision in the log:
+
+```bash
+tail -f .claude/hooks/hook.log
+# testes FALHARAM -> escrevendo no stderr -> exit 1
+```
+
+Remember to restore the robust hook in `settings.json` afterwards.
+
 ## Takeaway
 
 Hooks turn "please run the tests" into "the agent cannot finish until tests pass". Always cap retries when using `exit 2`, otherwise a failure Claude can't fix traps it in a loop.
